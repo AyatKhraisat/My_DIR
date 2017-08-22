@@ -6,11 +6,14 @@
 package my_dir;
 
 import java.awt.Desktop;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.FileStore;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -33,75 +36,111 @@ import javax.swing.filechooser.FileSystemView;
  */
 public class My_dir {
 
-    public static void main(String[] args) throws IOException {
+    //to arrange output in columns 
+    private static final int NUMBER_OF_SPACES = -30;
+    
+    //Supported commands
+    private static final String DIR_COMMAND = "dir";
+    private static final String DIR_VIEW_OWNER_COMMAND = "dir/q";
+    private static final String DIR_LOWER_CASE_COMMAND = "dir/L";
 
-        Scanner s = new Scanner(System.in);
-        String input = s.nextLine();
-        
-         if (input.equalsIgnoreCase("dir")) {
-            File curDir = new File(".");
-     System.out.println("Label"+getVolume(curDir.getPath()));
+    //format numbers (thousands separator)   
+    private NumberFormat numberFormat;
+    
+    /*check if option is selected
+     the supported options is:
+     /q (display the owener of the file)
+     /l (display file name in lowercase) */
+    private boolean displayOwner = false;
+    private boolean nameInLowerCase = false;
+
   
-            getAllFiles(curDir);
+    
+    public static void main(String[] args) throws IOException {
+       
+        
+        My_dir obj = new My_dir();
+        
+        obj.numberFormat = NumberFormat.getNumberInstance();
+        
+        //read the user command
+        Scanner s = new Scanner(System.in);
+        String input = s.nextLine().replaceAll("\\s", "");
+
+             File currentDirectory = new File(".");
+    
+            FileStore store = Files.getFileStore(currentDirectory.toPath());
+        //check if command is supported
+        if (input.equalsIgnoreCase(DIR_COMMAND) || input.equalsIgnoreCase(DIR_VIEW_OWNER_COMMAND)
+                || input.equalsIgnoreCase(DIR_LOWER_CASE_COMMAND)) {
+
+            if (input.equalsIgnoreCase(DIR_VIEW_OWNER_COMMAND)) {
+                obj.displayOwner = true;
+            } else if (input.equalsIgnoreCase(DIR_LOWER_CASE_COMMAND)) {
+                obj.nameInLowerCase = true;
+            }
+
+            String root = Paths.get(currentDirectory.getAbsolutePath()).getRoot().toString();
+            System.out.print("Volume in drive " + root.substring(0, 1).toUpperCase() + " ");
+
+            if (!store.name().equals("") && store.name() != null) {
+                System.out.println(store.name());
+            } else {
+                System.out.println("has no label.");
+            }
+            System.out.println("\nDirectory of " + currentDirectory.getCanonicalPath()+ "\n");
+            obj.getAllFiles(currentDirectory);
+        }
+        else {
+            System.out.println("command not supported");
         }
     }
 
-    private static String getVolume (String path){
-        FileSystemView view = FileSystemView.getFileSystemView();
-  File dir = new File(path);
-  String name = view.getSystemDisplayName(dir);
-  if (name == null) { return null; }
-  name = name.trim();
-  if (name == null || name.length() < 1) {
-   return null;
-  }
-  int index = name.lastIndexOf(" (");
-  if (index > 0) {
-    name = name.substring(0, index);
-   }
- return name;}
-               private static void getAllFiles(File curDir) throws IOException {
+    private void getAllFiles(File curDir) throws IOException {
 
         File[] filesList = curDir.listFiles();
-        int dir = 0;
-        int file = 0;
-        long fileSize = 0;
+        int directoriesCounter = 0;
+        int filesCounter = 0;
+        long filesSize = 0;
         for (File f : filesList) {
+            if ((f.isDirectory() || f.isFile()) && !f.isHidden()) {
+                System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", getCreationDateTime(f)));
 
-            if (f.isDirectory() && !f.isHidden()) {
+                if (f.isDirectory()) {
 
-                System.out.print(getCreationDateTime(f) + "  ");
-                
-              try{
-                System.out.print(Files.getOwner(f.toPath()).getName() + "  ");
-              }
-              catch(IOException e){
-                  System.out.print("..."+"  ");
-              }
-                System.out.println(f.getName());
-                dir++;
+                    System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", "<DIR>"));
 
-            }
+                    directoriesCounter++;
 
-            else if (f.isFile() && !f.isHidden()) {
-                System.out.print(getCreationDateTime(f) + "  ");
-                System.out.print(Files.getOwner(f.toPath()).getName() + "  ");
-                System.out.printf("%,d  ", f.length());
-                System.out.println(f.getName());
-                file++;
-                fileSize += f.length();
+                } else if (f.isFile()) {
+                    System.out.print(String.format("%" + -NUMBER_OF_SPACES + "s", numberFormat.format(f.length()) + " "));
 
+                    filesCounter++;
+                    filesSize += f.length();
+
+                }
+                if (displayOwner) {
+                    try {
+                        System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", Files.getOwner(f.toPath()).getName()));
+                    } catch (IOException e) {
+                        System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", "..."));
+                    }
+                }
+                String fileName = f.getName();
+                if (nameInLowerCase) {
+                    fileName = fileName.toLowerCase();
+                }
+                System.out.println(String.format("%" + NUMBER_OF_SPACES + "s", fileName));
             }
         }
-        NumberFormat nf = NumberFormat.getNumberInstance();
+
         FileStore store = Files.getFileStore(curDir.toPath());
-        System.out.println(file + " File<s>     " + nf.format(fileSize) + " bytes ");
-        System.out.println(dir + " Dir<s>     " + nf.format(store.getUsableSpace()) + " bytes free");
+        System.out.println(filesCounter+" File<S>    "+ numberFormat.format(filesSize) + " bytes ");
+        System.out.println(directoriesCounter+" Dir<S>    "+numberFormat.format(store.getUsableSpace()) + " bytes free");
 
     }
-public static boolean containsSymlink(File file) throws IOException {
-  return file.getCanonicalFile().equals(file.getAbsoluteFile());
-}
+
+    //return file date and time 
     public static String getCreationDateTime(File file) throws IOException {
 
         BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
