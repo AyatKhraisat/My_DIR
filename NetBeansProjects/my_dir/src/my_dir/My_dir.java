@@ -1,4 +1,3 @@
-
 package my_dir;
 
 import java.io.File;
@@ -25,7 +24,7 @@ public class My_dir {
 
     //Supported commands
     private static final String DIR_COMMAND = "dir";
-    private static final String DIR_VIEW_OWNER_COMMAND = "dir/q";
+    private static final String DIR_VIEW_OWNER_COMMAND = "dir/Q";
     private static final String DIR_LOWER_CASE_COMMAND = "dir/L";
 
     //format numbers (thousands separator)   
@@ -42,62 +41,63 @@ public class My_dir {
 
     public static void main(String[] args) throws IOException {
 
-        My_dir obj = new My_dir();
+        My_dir myDir = new My_dir();
 
-        obj.numberFormat = NumberFormat.getNumberInstance();
+        myDir.numberFormat = NumberFormat.getNumberInstance();
 
         //read the user command
         Scanner s = new Scanner(System.in);
 
-        //to allow user to enter command with space or not ex: dir\q or dir \q
+        //to allow user to enter command with space or not ex: dir/Q or dir /Q
         String input = s.nextLine().replaceAll("\\s", "");
 
         File currentDirectory = new File(".");
 
-        obj.store = Files.getFileStore(currentDirectory.toPath());
+        myDir.store = Files.getFileStore(currentDirectory.toPath());
 
         //check if command is supported
         if (input.equalsIgnoreCase(DIR_COMMAND) || input.equalsIgnoreCase(DIR_VIEW_OWNER_COMMAND)
                 || input.equalsIgnoreCase(DIR_LOWER_CASE_COMMAND)) {
             if (input.equalsIgnoreCase(DIR_VIEW_OWNER_COMMAND)) {
-                obj.displayOwner = true;
+                myDir.displayOwner = true;
             } else if (input.equalsIgnoreCase(DIR_LOWER_CASE_COMMAND)) {
-                obj.nameInLowerCase = true;
+                myDir.nameInLowerCase = true;
             }
 
             String root = Paths.get(currentDirectory.getAbsolutePath()).getRoot().toString();
             System.out.print("Volume in drive " + root.substring(0, 1).toUpperCase() + " ");
 
-            if (!obj.store.name().equals("") && obj.store.name() != null) {
-                System.out.println(obj.store.name());
+            if (!myDir.store.name().equals("") && myDir.store.name() != null) {
+                System.out.println(myDir.store.name());
             } else {
                 System.out.println("has no label.");
             }
             System.out.println("\nDirectory of " + currentDirectory.getCanonicalPath() + "\n");
-            obj.getAllFiles(currentDirectory);
+            myDir.printAllFiles(currentDirectory);
         } else {
-            System.out.println("commands: dir, dir\\q ,dir\\l only supported ");
+            System.out.println("commands: dir, dir/q ,dir/l only supported ");
         }
     }
 
-    private void getAllFiles(File curDir) throws IOException {
+    private void printAllFiles(File curDir) throws IOException {
 
         File[] filesList = curDir.listFiles();
         int directoriesCounter = 0;
         int filesCounter = 0;
         long filesSize = 0;
+        StringBuilder stringBuilder = new StringBuilder();
         for (File file : filesList) {
             if ((file.isDirectory() || file.isFile()) && !file.isHidden()) {
-                System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", getCreationDateTime(file)));
+                stringBuilder.append(String.format("%" + NUMBER_OF_SPACES + "s", getModifiedDateTime(file)));
 
                 if (file.isDirectory()) {
 
-                    System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", "<DIR>"));
+                    stringBuilder.append(String.format("%" + NUMBER_OF_SPACES + "s", "<DIR>"));
 
                     directoriesCounter++;
 
                 } else if (file.isFile()) {
-                    System.out.print(String.format("%" + -NUMBER_OF_SPACES + "s", numberFormat.format(file.length()) + " "));
+                    stringBuilder.append(String.format("%" + -NUMBER_OF_SPACES + "s", numberFormat.format(file.length()) + " "));
 
                     filesCounter++;
                     filesSize += file.length();
@@ -105,26 +105,29 @@ public class My_dir {
                 }
                 if (displayOwner) {
                     try {
-                        System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", Files.getOwner(file.toPath()).getName()));
+                        stringBuilder.append(String.format("%" + NUMBER_OF_SPACES + "s", Files.getOwner(file.toPath()).getName()));
                     } catch (IOException e) {
-                        System.out.print(String.format("%" + NUMBER_OF_SPACES + "s", "..."));
+                        stringBuilder.append(String.format("%" + NUMBER_OF_SPACES + "s", "..."));
                     }
                 }
                 String fileName = file.getName();
                 if (nameInLowerCase) {
                     fileName = fileName.toLowerCase();
                 }
-                System.out.println(String.format("%" + NUMBER_OF_SPACES + "s", fileName));
+                stringBuilder.append(String.format("%" + NUMBER_OF_SPACES + "s", fileName)).append("\n");
             }
         }
 
-        System.out.println(filesCounter + " File<s>    " + numberFormat.format(filesSize) + " bytes ");
-        System.out.println(directoriesCounter + " Dir<s>    " + numberFormat.format(store.getUsableSpace()) + " bytes free");
-
+        stringBuilder.append(filesCounter).append(" File<s>    ").append(numberFormat.format(filesSize))
+                .append(" bytes ").append("\n");
+        
+        stringBuilder.append(directoriesCounter).append(" Dir<s>    ").append(numberFormat.format(store.getUsableSpace()))
+                .append(" bytes free").append("\n");
+        System.out.print(stringBuilder.toString());
     }
 
     //return last modifidied date and time of the file 
-    public String getCreationDateTime(File file) throws IOException {
+    private String getModifiedDateTime(File file) throws IOException {
 
         BasicFileAttributes attr = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
         Date creationDate = new Date(attr.lastModifiedTime().to(TimeUnit.MILLISECONDS));
